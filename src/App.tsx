@@ -22,7 +22,7 @@ const App = () => {
       y: 5,
       width: 10,
       height: 10,
-      backgroundCharacter: '#',
+      character: '#',
     });
 
     const childBox = createNode(NODE_TYPE.BOX, {
@@ -30,10 +30,17 @@ const App = () => {
       y: 1,
       width: 8,
       height: 8,
-      backgroundCharacter: '.',
+      character: '.',
+    });
+
+    const text = createNode(NODE_TYPE.TEXT, {
+      textContent: 'Hello\nWorld',
+      x: 1,
+      y: 1,
     });
 
     box.appendChild(childBox);
+    box.appendChild(text);
     nodeTree.appendChild(box);
 
     renderNodeTree(nodeTree, updateCell);

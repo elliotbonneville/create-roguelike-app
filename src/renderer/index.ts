@@ -1,6 +1,7 @@
 export enum NODE_TYPE {
   ROOT,
-  BOX
+  BOX,
+  TEXT,
 };
 
 interface VirtualEvent {}
@@ -13,9 +14,6 @@ interface BaseNode {
   y: number;
   width: number;
   height: number;
-  foregroundColor: string;
-  backgroundColor: string;
-  backgroundCharacter: string;
   eventListeners: ((event: VirtualEvent) => void)[];
   children: BaseNode[];
   parent: BaseNode | null;
@@ -23,6 +21,16 @@ interface BaseNode {
   removeChild: (node: BaseNode) => void;
   render: (updateCell: UpdateCell) => void;
   setAttribute: (name: ReadWriteAttribute, value: string | number) => void;
+}
+
+interface BoxNode extends BaseNode {
+  foregroundColor: string;
+  backgroundColor: string;
+  character: string;
+}
+
+interface TextNode extends BaseNode, BoxNode {
+  textContent: string;
 }
 
 interface Cell {
@@ -61,7 +69,7 @@ const baseConfig: CellDataRendererConfig = {
   fontSize: 28,
 };
 
-export const createNode = (type: NODE_TYPE, data?: Partial<BaseNode>) => {
+export const createNode = (type: NODE_TYPE, data?: Partial<BaseNode & BoxNode & TextNode>) => {
   const baseNode: BaseNode = {
     // properties
     type,
@@ -70,12 +78,8 @@ export const createNode = (type: NODE_TYPE, data?: Partial<BaseNode>) => {
     y: 0,
     width: 80,
     height: 20,
-    foregroundColor: 'white',
-    backgroundColor: 'black',
-    backgroundCharacter: '',
     children: [],
     parent: null,
-    ...data,
 
     // methods
     appendChild(node: BaseNode) {
@@ -103,26 +107,63 @@ export const createNode = (type: NODE_TYPE, data?: Partial<BaseNode>) => {
   switch (type) {
     case NODE_TYPE.ROOT: {
       baseNode.render = function (updateCell: UpdateCell) {};
-      return baseNode;
+      return baseNode as BaseNode;
     }
 
     case NODE_TYPE.BOX: {
-      baseNode.render = function (updateCell: UpdateCell) {
-        for (let x = 0; x < this.width; x++) {
-          for (let y = 0; y < this.height; y++) {
-            updateCell(
-              x,
-              y,
-              {
-                character: this.backgroundCharacter,
-                foregroundColor: this.foregroundColor,
-                backgroundColor: this.backgroundColor,
-              },
-            );
+      return {
+        // properties
+        ...baseNode,
+        foregroundColor: 'white',
+        backgroundColor: 'black',
+        character: '',
+        ...data,
+
+        // methods
+        render(updateCell: UpdateCell) {
+          for (let x = 0; x < this.width; x++) {
+            for (let y = 0; y < this.height; y++) {
+              updateCell(
+                x,
+                y,
+                {
+                  character: this.character,
+                  foregroundColor: this.foregroundColor,
+                  backgroundColor: this.backgroundColor,
+                },
+              );
+            }
           }
+        },
+      } as BoxNode;
+    }
+
+    case NODE_TYPE.TEXT: {
+      return {
+        ...baseNode,
+        foregroundColor: 'white',
+        backgroundColor: 'black',
+        textContent: '',
+        ...data,
+
+        // methods
+        render(updateCell) {
+          const lines = this.textContent.split('\n');
+          lines.forEach((line, y) => {
+            for (let x = 0; x < line.length; x++) {
+              updateCell(
+                x,
+                y,
+                {
+                  character: line[x],
+                  foregroundColor: this.foregroundColor,
+                  backgroundColor: this.backgroundColor,
+                }
+              );
+            }
+          });
         }
-      };
-      return baseNode;
+      } as TextNode;
     }
 
     default:
