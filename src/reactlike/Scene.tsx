@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { createScene, createNodeTree } from './renderer';
-import ReactLike from './reactlike';
+import Reconciler from './reconciler';
+import { createScene, createNodeTree } from '.';
 
 export interface SceneProps {
   children?: React.ReactNode;
@@ -37,8 +37,8 @@ const Scene: React.FC<SceneProps> = ({
   }, [height, width]);
 
   if (renderScene) {
+    Reconciler.render(children, nodeTree);
     renderScene();
-    ReactLike.render(children, nodeTree);
   }
 
   return <div ref={containerRef} />;

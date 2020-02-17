@@ -1,4 +1,7 @@
-import Reconciler from 'react-reconciler';
+// Components
+import createBox, { BoxNode } from './box';
+import createText, { TextNode } from './text';
+import createBase, { BaseNode } from './base';
 
 // Types
 export const Root = 'root';
@@ -6,7 +9,7 @@ export const Box = 'box';
 export const Text = 'text';
 export type NodeType = 'root' | 'box' | 'text';
 
-interface VirtualEvent {
+export interface VirtualEvent {
   x: number;
   y: number;
 }
@@ -17,36 +20,6 @@ export type ReadWriteAttribute =
   | 'foregroundColor'
   | 'backgroundColor'
   | 'textContent';
-
-export interface BaseNode {
-  type: 'RootNode';
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  eventListeners: ((event: VirtualEvent) => void)[];
-  children: BaseNode[];
-  parent: BaseNode | null;
-  rootContainer?: Reconciler.FiberRoot;
-  appendChild: (node: BaseNode) => void;
-  removeChild: (node: BaseNode) => void;
-  addEventListener: (eventName: string, listener: () => {}) => void;
-  removeEventListener: (eventName: string, listener: () => {}) => void;
-  setAttribute: (name: ReadWriteAttribute, value: string | number) => void;
-}
-
-export interface BoxNode extends Omit<BaseNode, 'type'> {
-  foregroundColor: string;
-  backgroundColor: string;
-  character: string;
-  render: (updateCell: UpdateCell) => void;
-}
-
-export interface TextNode extends BaseNode, BoxNode {
-  type: 'TextNode';
-  textContent: string;
-  render: (updateCell: UpdateCell) => void;
-}
 
 export type VirtualNode = BaseNode | BoxNode | TextNode;
 
@@ -62,7 +35,7 @@ interface CellData {
   [cellKey: string]: Cell;
 }
 
-interface UpdateCell {
+export interface UpdateCell {
   (x: number, y: number, data: Partial<Cell>): void;
 }
 
@@ -90,105 +63,19 @@ export const createNode = (
   type: NodeType,
   data?: Partial<BaseNode & BoxNode & TextNode>,
 ): BaseNode | BoxNode | TextNode => {
-  const baseNode: BaseNode = {
-    // properties
-    eventListeners: [],
-    x: 0,
-    y: 0,
-    width: 80,
-    height: 20,
-    children: [],
-    parent: null,
-
-    // methods
-    addEventListener() {
-      // TODO: implement this
-    },
-
-    appendChild(node: BaseNode) {
-      Object.assign(node, { parent: this });
-      this.children.push(node);
-    },
-
-    removeChild(node: BaseNode) {
-      Object.assign(node, { parent: null });
-      this.children = this.children.splice(this.children.indexOf(node), 1);
-    },
-
-    removeEventListener() {
-      // TODO: implement this
-    },
-
-    setAttribute(attributeName: ReadWriteAttribute, value: string | number) {
-      Object.assign(this, {
-        [attributeName]: value,
-      });
-    },
-  };
+  const base: BaseNode = createBase();
 
   switch (type) {
-    case Root: {
-      return baseNode as BaseNode;
-    }
-
     case Box: {
-      return {
-        type: 'Box',
-
-        // properties
-        ...baseNode,
-        foregroundColor: 'white',
-        backgroundColor: 'black',
-        character: '',
-        ...data,
-
-        // methods
-        render(updateCell: UpdateCell) {
-          if (!this.character) {
-            return;
-          }
-
-          for (let x = 0; x < this.width; x += 1) {
-            for (let y = 0; y < this.height; y += 1) {
-              updateCell(x, y, {
-                character: this.character,
-                foregroundColor: this.foregroundColor,
-                backgroundColor: this.backgroundColor,
-              });
-            }
-          }
-        },
-      } as BoxNode;
+      return createBox(base, data as Partial<BoxNode>);
     }
 
     case Text: {
-      return {
-        type: 'TextNode',
-
-        ...baseNode,
-        foregroundColor: 'white',
-        backgroundColor: 'black',
-        textContent: '',
-        ...data,
-
-        // methods
-        render(updateCell) {
-          const lines = `${this.textContent}`.split('\n');
-          lines.forEach((line, y) => {
-            for (let x = 0; x < line.length; x += 1) {
-              updateCell(x, y, {
-                character: line[x],
-                foregroundColor: this.foregroundColor,
-                backgroundColor: this.backgroundColor,
-              });
-            }
-          });
-        },
-      } as TextNode;
+      return createText(base, data as Partial<TextNode>);
     }
 
     default:
-      return baseNode as BaseNode;
+      return base as BaseNode;
   }
 };
 
@@ -202,7 +89,7 @@ export const createNodeTree = ({
   const rootNode = createNode(Root);
   rootNode.setAttribute('width', width);
   rootNode.setAttribute('height', height);
-  return rootNode;
+  return rootNode as BaseNode;
 };
 
 export const renderNodeTree = (
@@ -305,10 +192,20 @@ export const createScene = ({
   };
 
   return (): void => {
-    // Update node tree
-    renderNodeTree(nodeTree, updateCell);
+    // Clear buffer
+    Object.keys(cells).forEach((cellKey: string) => {
+      const [x, y] = cellKey.split(',');
+      updateCell(+x, +y, {
+        character: '',
+        backgroundColor: 'black',
+        foregroundColor: 'white',
+      });
+    });
 
     // Rasterize node tree to buffer
+    renderNodeTree(nodeTree, updateCell);
+
+    // Apply changes in buffer to DOM
     Object.values(cells).forEach(cellToRender => {
       if (!cellToRender.dirty) {
         return;
