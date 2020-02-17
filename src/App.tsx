@@ -1,55 +1,18 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { createCellDataRenderer, createNodeTree, renderNodeTree, createNode, NODE_TYPE } from './renderer';
+import React from 'react';
 
-const App = () => {
-  const rootRef: React.RefObject<HTMLDivElement> = useRef(null);
-  const [nodeTree] = useState(createNodeTree({
-    width: 80,
-    height: 20,
-  }));
+import Scene from './Scene';
 
-  useEffect(() => {
-    if (!rootRef.current) {
-      return;
-    }
-
-    const { render, updateCell } = createCellDataRenderer({
-      baseElement: rootRef.current,
-    });
-
-    const box = createNode(NODE_TYPE.BOX, {
-      x: 5,
-      y: 5,
-      width: 10,
-      height: 10,
-      character: '#',
-    });
-
-    const childBox = createNode(NODE_TYPE.BOX, {
-      x: 1,
-      y: 1,
-      width: 8,
-      height: 8,
-      character: '.',
-    });
-
-    const text = createNode(NODE_TYPE.TEXT, {
-      textContent: 'Hello\nWorld',
-      x: 1,
-      y: 1,
-    });
-
-    box.appendChild(childBox);
-    box.appendChild(text);
-    nodeTree.appendChild(box);
-
-    renderNodeTree(nodeTree, updateCell);
-    render();
-  }, [nodeTree]);
-
+const App: React.FC = () => {
   return (
-    <div ref={rootRef} />
-  )
-}
+    <Scene width={80} height={20}>
+      <box width={10} height={10} x={5} y={5} character="#">
+        <text x={1} y={1}>
+          Hello World
+        </text>
+      </box>
+      <box width={8} height={8} x={6} y={6} character="." />
+    </Scene>
+  );
+};
 
 export default App;

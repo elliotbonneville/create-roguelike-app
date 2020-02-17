@@ -1,15 +1,22 @@
-export enum NODE_TYPE {
-  ROOT,
-  BOX,
-  TEXT,
-};
+// Types
+export const Root = 'root';
+export const Box = 'box';
+export const Text = 'text';
+export type NodeType = 'root' | 'box' | 'text';
 
-interface VirtualEvent {}
+interface VirtualEvent {
+  x: number;
+  y: number;
+}
 
-type ReadWriteAttribute = 'width' | 'height' | 'foregroundColor' | 'backgroundColor';
+export type ReadWriteAttribute =
+  | 'width'
+  | 'height'
+  | 'foregroundColor'
+  | 'backgroundColor'
+  | 'textContent';
 
-interface BaseNode {
-  type: NODE_TYPE;
+export interface BaseNode {
   x: number;
   y: number;
   width: number;
@@ -17,21 +24,28 @@ interface BaseNode {
   eventListeners: ((event: VirtualEvent) => void)[];
   children: BaseNode[];
   parent: BaseNode | null;
+  rootContainer: boolean;
   appendChild: (node: BaseNode) => void;
   removeChild: (node: BaseNode) => void;
-  render: (updateCell: UpdateCell) => void;
+  addEventListener: (eventName: string, listener: () => {}) => void;
+  removeEventListener: (eventName: string, listener: () => {}) => void;
   setAttribute: (name: ReadWriteAttribute, value: string | number) => void;
 }
 
-interface BoxNode extends BaseNode {
+export interface BoxNode extends Omit<BaseNode, 'type'> {
   foregroundColor: string;
   backgroundColor: string;
   character: string;
+  render: (updateCell: UpdateCell) => void;
 }
 
-interface TextNode extends BaseNode, BoxNode {
+export interface TextNode extends BaseNode, BoxNode {
+  type: 'TextNode';
   textContent: string;
+  render: (updateCell: UpdateCell) => void;
 }
+
+export type VirtualNode = BaseNode | BoxNode | TextNode;
 
 interface Cell {
   foregroundColor: string;
@@ -57,7 +71,7 @@ interface CellDataRendererConfig {
   cellPaddingLeft: number;
   cellPaddingTop: number;
   fontSize: number;
-};
+}
 
 const baseConfig: CellDataRendererConfig = {
   width: 80,
@@ -69,10 +83,12 @@ const baseConfig: CellDataRendererConfig = {
   fontSize: 28,
 };
 
-export const createNode = (type: NODE_TYPE, data?: Partial<BaseNode & BoxNode & TextNode>) => {
+export const createNode = (
+  type: NodeType,
+  data?: Partial<BaseNode & BoxNode & TextNode>,
+): BaseNode | BoxNode | TextNode => {
   const baseNode: BaseNode = {
     // properties
-    type,
     eventListeners: [],
     x: 0,
     y: 0,
@@ -80,37 +96,40 @@ export const createNode = (type: NODE_TYPE, data?: Partial<BaseNode & BoxNode & 
     height: 20,
     children: [],
     parent: null,
+    rootContainer: false,
 
     // methods
+    addEventListener() {
+      // TODO: implement this
+    },
+
     appendChild(node: BaseNode) {
-      node.parent = this;
+      Object.assign(node, { parent: this });
       this.children.push(node);
     },
 
     removeChild(node: BaseNode) {
-      node.parent = null;
+      Object.assign(node, { parent: null });
       this.children = this.children.splice(this.children.indexOf(node), 1);
     },
 
-    render(updateCell: UpdateCell) {},
+    removeEventListener() {
+      // TODO: implement this
+    },
 
     setAttribute(attributeName: ReadWriteAttribute, value: string | number) {
-      Object.assign(
-        this,
-        {
-          [attributeName]: value,
-        },
-      );
+      Object.assign(this, {
+        [attributeName]: value,
+      });
     },
   };
 
   switch (type) {
-    case NODE_TYPE.ROOT: {
-      baseNode.render = function (updateCell: UpdateCell) {};
+    case Root: {
       return baseNode as BaseNode;
     }
 
-    case NODE_TYPE.BOX: {
+    case Box: {
       return {
         // properties
         ...baseNode,
@@ -121,24 +140,21 @@ export const createNode = (type: NODE_TYPE, data?: Partial<BaseNode & BoxNode & 
 
         // methods
         render(updateCell: UpdateCell) {
-          for (let x = 0; x < this.width; x++) {
-            for (let y = 0; y < this.height; y++) {
-              updateCell(
-                x,
-                y,
-                {
-                  character: this.character,
-                  foregroundColor: this.foregroundColor,
-                  backgroundColor: this.backgroundColor,
-                },
-              );
+          console.log('rendering box', this.character);
+          for (let x = 0; x < this.width; x += 1) {
+            for (let y = 0; y < this.height; y += 1) {
+              updateCell(x, y, {
+                character: this.character,
+                foregroundColor: this.foregroundColor,
+                backgroundColor: this.backgroundColor,
+              });
             }
           }
         },
       } as BoxNode;
     }
 
-    case NODE_TYPE.TEXT: {
+    case Text: {
       return {
         ...baseNode,
         foregroundColor: 'white',
@@ -150,67 +166,87 @@ export const createNode = (type: NODE_TYPE, data?: Partial<BaseNode & BoxNode & 
         render(updateCell) {
           const lines = this.textContent.split('\n');
           lines.forEach((line, y) => {
-            for (let x = 0; x < line.length; x++) {
-              updateCell(
-                x,
-                y,
-                {
-                  character: line[x],
-                  foregroundColor: this.foregroundColor,
-                  backgroundColor: this.backgroundColor,
-                }
-              );
+            for (let x = 0; x < line.length; x += 1) {
+              updateCell(x, y, {
+                character: line[x],
+                foregroundColor: this.foregroundColor,
+                backgroundColor: this.backgroundColor,
+              });
             }
           });
-        }
+        },
       } as TextNode;
     }
 
     default:
-      return baseNode;
+      return baseNode as BaseNode;
   }
-}
+};
 
 export const createNodeTree = ({
   width,
-  height
+  height,
 }: {
-  width: number,
-  height: number,
-}) => {
-  const rootNode = createNode(NODE_TYPE.ROOT)!;
+  width: number;
+  height: number;
+}): BaseNode => {
+  const rootNode = createNode(Root, {
+    rootContainer: true,
+  });
   rootNode.setAttribute('width', width);
   rootNode.setAttribute('height', height);
   return rootNode;
 };
 
-export const renderNodeTree = (node: BaseNode, updateCell: UpdateCell) => {
-  node.render(updateCell);
-  node.children.forEach(
-    (child: BaseNode) => {
-      const offsetUpdateCell = (x: number, y: number, data: Partial<Cell>) => {
-        updateCell(x + child.x, y + child.y, data);
-      };
+export const renderNodeTree = (
+  node: BaseNode | BoxNode | TextNode,
+  updateCell: UpdateCell,
+): void => {
+  if ('render' in node) {
+    node.render(updateCell);
+  }
 
-      renderNodeTree(child, offsetUpdateCell);
-    },
-  )
+  node.children.forEach((child: BaseNode) => {
+    const offsetUpdateCell = (
+      x: number,
+      y: number,
+      data: Partial<Cell>,
+    ): void => {
+      updateCell(x + child.x, y + child.y, data);
+    };
+
+    renderNodeTree(child, offsetUpdateCell);
+  });
 };
 
-// Create a singleton to render cell data to the DOM
-export const createCellDataRenderer = ({
+// Create a singleton to hold a scene and render it
+export const createScene = ({
   baseElement,
   config = baseConfig,
+  nodeTree: initialNodeTree,
 }: {
-  baseElement: HTMLDivElement,
-  config?: CellDataRendererConfig,
-}) => {
+  baseElement: HTMLDivElement;
+  config?: Partial<CellDataRendererConfig>;
+  nodeTree?: BaseNode;
+}): (() => void) => {
   const documentFragment = document.createDocumentFragment();
   const cells: CellData = {};
 
+  const {
+    width,
+    height,
+    cellWidth,
+    cellHeight,
+    fontSize,
+    cellPaddingLeft,
+    cellPaddingTop,
+  } = Object.assign(baseConfig, config);
+
+  const nodeTree = initialNodeTree || createNodeTree({ width, height });
+
   // Create nodes
-  for (let x = 0; x < config.width; x++) {
-    for (let y = 0; y < config.height; y++) {
+  for (let x = 0; x < width; x += 1) {
+    for (let y = 0; y < height; y += 1) {
       const cellKey = `${x},${y}`;
       const cell: Cell = {
         foregroundColor: 'white',
@@ -223,17 +259,17 @@ export const createCellDataRenderer = ({
       // Create DOM node for cell
       Object.assign(cell.element.style, {
         fontFamily: 'VideoTerminalScreen',
-        fontSize: `${config.fontSize}px`,
+        fontSize: `${fontSize}px`,
         position: 'absolute',
-        width: `${config.cellWidth}px`,
-        height: `${config.cellHeight}px`,
-        left: `${x * config.cellWidth}px`,
-        top: `${y * config.cellHeight}px`,
+        width: `${cellWidth}px`,
+        height: `${cellHeight}px`,
+        left: `${x * cellWidth}px`,
+        top: `${y * cellHeight}px`,
         textAlign: 'center',
         verticalAlign: 'middle',
-        lineHeight: `${config.cellHeight}px`,
-        paddingLeft: `${config.cellPaddingLeft}px`,
-        paddingTop: `${config.cellPaddingTop}px`,
+        lineHeight: `${cellHeight}px`,
+        paddingLeft: `${cellPaddingLeft}px`,
+        paddingTop: `${cellPaddingTop}px`,
       });
 
       documentFragment.appendChild(cell.element);
@@ -243,45 +279,44 @@ export const createCellDataRenderer = ({
 
   baseElement.appendChild(documentFragment);
 
-  return {
-    updateCell: (x: number, y: number, data: Partial<Cell>) => {
-      const cell = cells[`${x},${y}`];
+  const updateCell = (x: number, y: number, data: Partial<Cell>): void => {
+    const cell = cells[`${x},${y}`];
 
-      if (!cell) {
+    if (!cell) {
+      return;
+    }
+
+    // Compare data here – if it's not different, don't flag tile as dirty
+    const dirty = Object.keys(data).some(
+      key => data[key as keyof Cell] !== cell[key as keyof Cell],
+    );
+
+    Object.assign(cell, {
+      ...data,
+      dirty,
+    });
+  };
+
+  return (): void => {
+    // Update node tree
+    renderNodeTree(nodeTree, updateCell);
+
+    // Rasterize node tree to buffer
+    Object.values(cells).forEach(cellToRender => {
+      if (!cellToRender.dirty) {
         return;
       }
 
-      // Compare data here – if it's not different, don't flag tile as dirty
-      const dirty = Object.keys(data).some(
-        (key) => data[key as keyof Cell] !== cell[key as keyof Cell]
-      );
-
-      Object.assign(
-        cell,
-        {
-          ...data,
-          dirty,
-        },
-      );
-    },
-
-    render: () => {
-      Object.entries(cells).forEach(([key, cell]) => {
-        if (!cell.dirty) {
-          return;
-        }
-
-        cell.element.innerHTML = cell.character;
-        Object.assign(
-          cell.element.style,
-          {
-            color: cell.foregroundColor,
-            backgroundColor: cell.backgroundColor,
-          }
-        );
-
-        cell.dirty = false;
+      Object.assign(cellToRender.element, {
+        innerHTML: cellToRender.character,
       });
-    },
+
+      Object.assign(cellToRender.element.style, {
+        color: cellToRender.foregroundColor,
+        backgroundColor: cellToRender.backgroundColor,
+      });
+
+      Object.assign(cellToRender, { dirty: false });
+    });
   };
 };

@@ -1,101 +1,123 @@
 import ReactReconciler from 'react-reconciler';
-
-function traceWrap(hostConfig) {
-  let traceWrappedHostConfig = {};
-  Object.keys(hostConfig).map(key => {
-    const func = hostConfig[key];
-    traceWrappedHostConfig[key] = (...args) => {
-      console.trace(key);
-      return func(...args);
-    };
-  });
-  return traceWrappedHostConfig;
-}
+import {
+  createNode,
+  NodeType,
+  BaseNode,
+  BoxNode,
+  TextNode,
+  VirtualNode,
+  ReadWriteAttribute,
+} from './renderer';
 
 const rootHostContext = {};
 const childHostContext = {};
 
 const hostConfig = {
   now: Date.now,
-  getRootHostContext: () => {
+  getPublicInstance: (instance: BaseNode): BaseNode => instance,
+  getRootHostContext: (): {} => {
     return rootHostContext;
   },
-  prepareForCommit: () => {},
-  resetAfterCommit: () => {},
-  getChildHostContext: () => {
+  prepareForCommit: (): void => {
+    return undefined;
+  },
+  resetAfterCommit: (): void => {
+    return undefined;
+  },
+  getChildHostContext: (): {} => {
     return childHostContext;
   },
-  shouldSetTextContent: (type, props) => {
-    return typeof props.children === 'string' || typeof props.children === 'number';
-  },
-  /**
-   This is where react-reconciler wants to create an instance of UI element in terms of the target. Since our target here is the DOM, we will create document.createElement and type is the argument that contains the type string like div or img or h1 etc. The initial values of domElement attributes can be set in this function from the newProps argument
-   */
-  createInstance: (type, newProps, rootContainerInstance, _currentHostContext, workInProgress) => {
-    const domElement = document.createElement(type);
+  shouldSetTextContent: (): boolean => false,
+  createInstance: (
+    type: NodeType,
+    newProps: { [key: string]: number | string | (() => {}) },
+  ): BaseNode | BoxNode | TextNode => {
+    const node = createNode(type);
     Object.keys(newProps).forEach(propName => {
       const propValue = newProps[propName];
       if (propName === 'children') {
         if (typeof propValue === 'string' || typeof propValue === 'number') {
-          domElement.textContent = propValue;
+          Object.assign(node, { textContent: propValue });
         }
-      } else if (propName === 'onClick') {
-        domElement.addEventListener('click', propValue);
-      } else if (propName === 'className') {
-        domElement.setAttribute('class', propValue);
       } else {
-        const propValue = newProps[propName];
-        domElement.setAttribute(propName, propValue);
+        const newPropValue = newProps[propName];
+        node.setAttribute(propName as ReadWriteAttribute, newPropValue);
       }
     });
-    return domElement;
+
+    return node;
   },
-  createTextInstance: text => {
-    return document.createTextNode(text);
+  createTextInstance: (text: string): TextNode => {
+    return createNode('text', {
+      textContent: text,
+    });
   },
-  appendInitialChild: (parent, child) => {
+  appendInitialChild: (parent: VirtualNode, child: VirtualNode): void => {
     parent.appendChild(child);
   },
-  appendChild(parent, child) {
+  appendChild(parent: VirtualNode, child: VirtualNode): void {
     parent.appendChild(child);
   },
-  finalizeInitialChildren: (domElement, type, props) => {},
+  finalizeInitialChildren: (): void => {
+    return undefined;
+  },
   supportsMutation: true,
-  appendChildToContainer: (parent, child) => {
+  appendChildToContainer: (parent: VirtualNode, child: VirtualNode): void => {
     parent.appendChild(child);
   },
-  prepareUpdate(domElement, oldProps, newProps) {
+  prepareUpdate(): boolean {
     return true;
   },
-  commitUpdate(domElement, updatePayload, type, oldProps, newProps) {
+  commitUpdate(
+    virtualNode: BaseNode,
+    updatePayload: any,
+    type: any,
+    oldProps: any,
+    newProps: any,
+  ): void {
     Object.keys(newProps).forEach(propName => {
       const propValue = newProps[propName];
       if (propName === 'children') {
         if (typeof propValue === 'string' || typeof propValue === 'number') {
-          domElement.textContent = propValue;
+          virtualNode.setAttribute('textContent', propValue);
+          Object.assign(virtualNode as TextNode, {
+            textContent: propValue as string,
+          });
         }
       } else {
-        const propValue = newProps[propName];
-        domElement.setAttribute(propName, propValue);
+        virtualNode.setAttribute(propName as ReadWriteAttribute, propValue);
       }
     });
   },
   commitTextUpdate(textInstance, oldText, newText) {
-    textInstance.text = newText;
+    Object.assign(textInstance, { text: newText });
   },
-  removeChild(parentInstance, child) {
+  removeChild(parentInstance: VirtualNode, child: VirtualNode): void {
     parentInstance.removeChild(child);
-  }
+  },
 };
-const ReactReconcilerInst = ReactReconciler(traceWrap(hostConfig));
+const ReactReconcilerInst = ReactReconciler(hostConfig as any);
 export default {
-  render: (reactElement, domElement, callback) => {
-    // Create a root Container if it doesnt exist
-    if (!domElement._rootContainer) {
-      domElement._rootContainer = ReactReconcilerInst.createContainer(domElement, false);
+  render: (
+    reactElement: React.ReactNode,
+    virtualNode: BaseNode,
+    callback?: () => void,
+  ): BaseNode => {
+    // Create a root Container if it doesn't exist
+    if (!virtualNode.rootContainer) {
+      Object.assign(virtualNode, {
+        rootContainer: ReactReconcilerInst.createContainer(virtualNode, false),
+      });
     }
 
     // update the root Container
-    return ReactReconcilerInst.updateContainer(reactElement, domElement._rootContainer, null, callback);
-  }
+    ReactReconcilerInst.updateContainer(
+      reactElement,
+      virtualNode.rootContainer,
+      null,
+      callback,
+    );
+
+    return virtualNode;
+  },
 };
