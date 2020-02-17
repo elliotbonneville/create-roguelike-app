@@ -124,12 +124,12 @@ export default {
       () => undefined,
     );
 
-    Reconciler.injectIntoDevTools({
-      bundleType: process.env.NODE_ENV === 'production' ? 0 : 1,
-      version: '0.1.0',
-      rendererPackageName: 'react-like',
-    });
-
     return rootNode;
   },
 };
+
+Reconciler.injectIntoDevTools({
+  bundleType: process.env.NODE_ENV === 'production' ? 0 : 1,
+  version: '0.1.0',
+  rendererPackageName: 'react-like',
+});

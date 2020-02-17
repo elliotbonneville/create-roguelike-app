@@ -1,9 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
 import Reconciler from './reconciler';
-import { createScene, createNodeTree } from '.';
+import { createScene, createNodeTree, CellDataRendererConfig } from '.';
 
 export interface SceneProps {
   children?: React.ReactNode;
+  config?: Partial<CellDataRendererConfig>;
+  style?: React.CSSProperties;
   width: number;
   height: number;
 }
@@ -11,7 +13,9 @@ export interface SceneProps {
 const Scene: React.FC<SceneProps> = ({
   width = 80,
   height = 20,
+  config,
   children,
+  style,
 }: SceneProps) => {
   const containerRef: React.RefObject<HTMLDivElement> = useRef(null);
   const [renderScene, setRenderScene] = useState();
@@ -19,13 +23,14 @@ const Scene: React.FC<SceneProps> = ({
 
   useEffect(() => {
     if (!containerRef.current) {
-      return;
+      return null;
     }
 
     const tree = createNodeTree({ width, height });
     const renderSceneCallback = createScene({
       baseElement: containerRef.current,
       config: {
+        ...config,
         width,
         height,
       },
@@ -34,6 +39,10 @@ const Scene: React.FC<SceneProps> = ({
 
     setNodeTree(tree);
     setRenderScene(() => renderSceneCallback);
+
+    return (): void => {
+      Object.assign(containerRef.current, { innerHTML: '' });
+    };
   }, [height, width]);
 
   if (renderScene) {
@@ -41,7 +50,7 @@ const Scene: React.FC<SceneProps> = ({
     renderScene();
   }
 
-  return <div ref={containerRef} />;
+  return <div ref={containerRef} style={style} />;
 };
 
 export default Scene;

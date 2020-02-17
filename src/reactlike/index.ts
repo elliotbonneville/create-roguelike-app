@@ -39,7 +39,7 @@ export interface UpdateCell {
   (x: number, y: number, data: Partial<Cell>): void;
 }
 
-interface CellDataRendererConfig {
+export interface CellDataRendererConfig {
   width: number;
   height: number;
   cellWidth: number;
