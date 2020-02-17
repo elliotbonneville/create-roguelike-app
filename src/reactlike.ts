@@ -27,7 +27,7 @@ const hostConfig = {
   getChildHostContext: (): {} => {
     return childHostContext;
   },
-  shouldSetTextContent: (): boolean => false,
+  shouldSetTextContent: (type: string): boolean => type === 'text',
   createInstance: (
     type: NodeType,
     newProps: { [key: string]: number | string | (() => {}) },
@@ -47,11 +47,7 @@ const hostConfig = {
 
     return node;
   },
-  createTextInstance: (text: string): TextNode => {
-    return createNode('text', {
-      textContent: text,
-    });
-  },
+  createTextInstance: (text: string): string => text,
   appendInitialChild: (parent: VirtualNode, child: VirtualNode): void => {
     parent.appendChild(child);
   },
@@ -95,29 +91,40 @@ const hostConfig = {
   removeChild(parentInstance: VirtualNode, child: VirtualNode): void {
     parentInstance.removeChild(child);
   },
+  removeChildFromContainer(
+    parentInstance: VirtualNode,
+    child: VirtualNode,
+  ): void {
+    parentInstance.removeChild(child);
+  },
 };
-const ReactReconcilerInst = ReactReconciler(hostConfig as any);
+const Renderer = ReactReconciler(hostConfig as any);
+
 export default {
-  render: (
-    reactElement: React.ReactNode,
-    virtualNode: BaseNode,
-    callback?: () => void,
-  ): BaseNode => {
-    // Create a root Container if it doesn't exist
-    if (!virtualNode.rootContainer) {
-      Object.assign(virtualNode, {
-        rootContainer: ReactReconcilerInst.createContainer(virtualNode, false),
+  render: (node: React.ReactNode, rootNode: BaseNode): BaseNode => {
+    const isAsync = false;
+
+    if (!rootNode.rootContainer) {
+      Object.assign(rootNode, {
+        rootContainer: Renderer.createContainer(rootNode, isAsync, false),
       });
     }
 
-    // update the root Container
-    ReactReconcilerInst.updateContainer(
-      reactElement,
-      virtualNode.rootContainer,
-      null,
-      callback,
+    const parentComponent = null;
+    Renderer.updateContainer(
+      node,
+      rootNode.rootContainer,
+      parentComponent,
+      () => undefined,
     );
 
-    return virtualNode;
+    // Renderer.injectIntoDevTools({
+    //   bundleType: process.env.NODE_ENV === 'production' ? 0 : 1,
+    //   version: '0.1.0',
+    //   rendererPackageName: 'react-like',
+    //   findHostInstanceByFiber: Renderer.findHostInstance,
+    // } as any);
+
+    return rootNode;
   },
 };

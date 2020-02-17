@@ -1,3 +1,5 @@
+import Reconciler from 'react-reconciler';
+
 // Types
 export const Root = 'root';
 export const Box = 'box';
@@ -17,6 +19,7 @@ export type ReadWriteAttribute =
   | 'textContent';
 
 export interface BaseNode {
+  type: 'RootNode';
   x: number;
   y: number;
   width: number;
@@ -24,7 +27,7 @@ export interface BaseNode {
   eventListeners: ((event: VirtualEvent) => void)[];
   children: BaseNode[];
   parent: BaseNode | null;
-  rootContainer: boolean;
+  rootContainer?: Reconciler.FiberRoot;
   appendChild: (node: BaseNode) => void;
   removeChild: (node: BaseNode) => void;
   addEventListener: (eventName: string, listener: () => {}) => void;
@@ -96,7 +99,6 @@ export const createNode = (
     height: 20,
     children: [],
     parent: null,
-    rootContainer: false,
 
     // methods
     addEventListener() {
@@ -131,6 +133,8 @@ export const createNode = (
 
     case Box: {
       return {
+        type: 'Box',
+
         // properties
         ...baseNode,
         foregroundColor: 'white',
@@ -140,7 +144,10 @@ export const createNode = (
 
         // methods
         render(updateCell: UpdateCell) {
-          console.log('rendering box', this.character);
+          if (!this.character) {
+            return;
+          }
+
           for (let x = 0; x < this.width; x += 1) {
             for (let y = 0; y < this.height; y += 1) {
               updateCell(x, y, {
@@ -156,6 +163,8 @@ export const createNode = (
 
     case Text: {
       return {
+        type: 'TextNode',
+
         ...baseNode,
         foregroundColor: 'white',
         backgroundColor: 'black',
@@ -164,7 +173,7 @@ export const createNode = (
 
         // methods
         render(updateCell) {
-          const lines = this.textContent.split('\n');
+          const lines = `${this.textContent}`.split('\n');
           lines.forEach((line, y) => {
             for (let x = 0; x < line.length; x += 1) {
               updateCell(x, y, {
@@ -190,9 +199,7 @@ export const createNodeTree = ({
   width: number;
   height: number;
 }): BaseNode => {
-  const rootNode = createNode(Root, {
-    rootContainer: true,
-  });
+  const rootNode = createNode(Root);
   rootNode.setAttribute('width', width);
   rootNode.setAttribute('height', height);
   return rootNode;

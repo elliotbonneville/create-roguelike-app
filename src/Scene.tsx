@@ -15,15 +15,15 @@ const Scene: React.FC<SceneProps> = ({
 }: SceneProps) => {
   const containerRef: React.RefObject<HTMLDivElement> = useRef(null);
   const [renderScene, setRenderScene] = useState();
+  const [nodeTree, setNodeTree] = useState();
 
   useEffect(() => {
     if (!containerRef.current) {
       return;
     }
 
-    const tree = ReactLike.render(children, createNodeTree({ width, height }));
-
-    const newRenderScene = createScene({
+    const tree = createNodeTree({ width, height });
+    const renderSceneCallback = createScene({
       baseElement: containerRef.current,
       config: {
         width,
@@ -32,9 +32,14 @@ const Scene: React.FC<SceneProps> = ({
       nodeTree: tree,
     });
 
-    newRenderScene();
-    setRenderScene(renderScene);
-  }, []);
+    setNodeTree(tree);
+    setRenderScene(() => renderSceneCallback);
+  }, [height, width]);
+
+  if (renderScene) {
+    renderScene();
+    ReactLike.render(children, nodeTree);
+  }
 
   return <div ref={containerRef} />;
 };
