@@ -6,19 +6,19 @@ export interface BaseNode {
   y: number;
   width: number;
   height: number;
-  eventListeners: ((event: VirtualEvent) => void)[];
   children: BaseNode[];
   parent: BaseNode | null;
   rootContainer: Reconciler.FiberRoot | null;
+  renderedCells: { [cellKey: string]: boolean };
   appendChild: (node: BaseNode) => void;
   removeChild: (node: BaseNode) => void;
   setAttribute: (name: ReadWriteAttribute, value: string | number) => void;
+  handleEvent: (x: number, y: number) => void;
 }
 
 export default function createBase(): BaseNode {
   return {
     // properties
-    eventListeners: [],
     x: 0,
     y: 0,
     width: 80,
@@ -26,11 +26,30 @@ export default function createBase(): BaseNode {
     children: [],
     parent: null,
     rootContainer: null,
+    renderedCells: {},
 
     // methods
     appendChild(this: BaseNode, node: BaseNode): void {
       Object.assign(node, { parent: this });
       this.children.push(node);
+    },
+
+    handleEvent(x, y): void {
+      const cellKey = `${x},${y}`;
+      const hitNodes: BaseNode[] = [];
+
+      const checkNodeForHit = (node: BaseNode): void => {
+        if (node.renderedCells[cellKey]) {
+          hitNodes.push(node);
+        }
+
+        if (node.children.length) {
+          node.children.forEach(checkNodeForHit);
+        }
+      };
+
+      checkNodeForHit(this);
+      console.log(cellKey, hitNodes);
     },
 
     removeChild(this: BaseNode, node: BaseNode): void {

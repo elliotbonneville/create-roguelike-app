@@ -96,8 +96,18 @@ export const renderNodeTree = (
   node: BaseNode | BoxNode | TextNode,
   updateCell: UpdateCell,
 ): void => {
+  const wrappedUpdateCell = (
+    x: number,
+    y: number,
+    data: Partial<Cell>,
+  ): void => {
+    Object.assign(node.renderedCells, { [`${x},${y}`]: true });
+    updateCell(x, y, data);
+  };
+
+  Object.assign(node, { renderedCells: {} });
   if ('render' in node) {
-    node.render(updateCell);
+    node.render(wrappedUpdateCell);
   }
 
   node.children.forEach((child: BaseNode) => {
@@ -150,6 +160,8 @@ export const createScene = ({
         element: document.createElement('div'),
       };
 
+      cell.element.id = cellKey;
+
       // Create DOM node for cell
       Object.assign(cell.element.style, {
         fontFamily: 'VideoTerminalScreen',
@@ -193,6 +205,8 @@ export const createScene = ({
 
   return (): void => {
     // Clear buffer
+    // TODO: operate on renderedCells buffer in nodes for more efficient
+    // clearing
     Object.keys(cells).forEach((cellKey: string) => {
       const [x, y] = cellKey.split(',');
       updateCell(+x, +y, {

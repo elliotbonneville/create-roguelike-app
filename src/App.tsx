@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import Scene from './reactlike/Scene';
+import { VirtualEvent } from './reactlike';
 
 const config = {
   cellWidth: 16,
@@ -54,7 +55,11 @@ const App: React.FC = () => {
         height={sceneSize.height}
         border="pipe"
       >
-        <text x={2} y={1}>
+        <text
+          x={2}
+          y={1}
+          onMouseEnter={(event: VirtualEvent): void => console.log(event)}
+        >
           Hello World
         </text>
       </box>

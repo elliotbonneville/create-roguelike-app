@@ -22,13 +22,14 @@ const Scene: React.FC<SceneProps> = ({
   const [nodeTree, setNodeTree] = useState();
 
   useEffect(() => {
-    if (!containerRef.current) {
-      return null;
+    const domNode = containerRef.current;
+    if (!domNode) {
+      return (): void => undefined;
     }
 
     const tree = createNodeTree({ width, height });
     const renderSceneCallback = createScene({
-      baseElement: containerRef.current,
+      baseElement: domNode,
       config: {
         ...config,
         width,
@@ -40,10 +41,20 @@ const Scene: React.FC<SceneProps> = ({
     setNodeTree(tree);
     setRenderScene(() => renderSceneCallback);
 
+    domNode.addEventListener('mousemove', event => {
+      if (!(event.target as HTMLDivElement)?.id) {
+        return;
+      }
+
+      const [x, y] = (event.target as HTMLDivElement).id.split(',');
+
+      tree.handleEvent(+x, +y);
+    });
+
     return (): void => {
       Object.assign(containerRef.current, { innerHTML: '' });
     };
-  }, [height, width]);
+  }, [width, height]);
 
   if (renderScene) {
     Reconciler.render(children, nodeTree);
