@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import Reconciler from './reconciler';
 import { createScene, createNodeTree, CellDataRendererConfig } from '.';
+import { BaseNode } from './base';
 
 export interface SceneProps {
   children?: React.ReactNode;
@@ -10,13 +11,19 @@ export interface SceneProps {
   height: number;
 }
 
-const Scene: React.FC<SceneProps> = ({
-  width = 80,
-  height = 20,
+const useScene = ({
+  width,
+  height,
   config,
-  children,
-  style,
-}: SceneProps) => {
+}: {
+  width: number;
+  height: number;
+  config?: Partial<CellDataRendererConfig>;
+}): {
+  containerRef: React.RefObject<HTMLDivElement>;
+  nodeTree: BaseNode;
+  renderScene: () => void;
+} => {
   const containerRef: React.RefObject<HTMLDivElement> = useRef(null);
   const [renderScene, setRenderScene] = useState();
   const [nodeTree, setNodeTree] = useState();
@@ -41,20 +48,57 @@ const Scene: React.FC<SceneProps> = ({
     setNodeTree(tree);
     setRenderScene(() => renderSceneCallback);
 
-    domNode.addEventListener('mousemove', event => {
+    return (): void => {
+      Object.assign(containerRef.current, { innerHTML: '' });
+    };
+  }, [width, height]);
+
+  // Mouse event handling
+  useEffect(() => {
+    if (!containerRef.current || !nodeTree) {
+      return (): void => undefined;
+    }
+
+    const handleMouseMove = (event: MouseEvent): void => {
       if (!(event.target as HTMLDivElement)?.id) {
         return;
       }
 
       const [x, y] = (event.target as HTMLDivElement).id.split(',');
-
-      tree.handleEvent(+x, +y);
-    });
-
-    return (): void => {
-      Object.assign(containerRef.current, { innerHTML: '' });
+      nodeTree.handleMouseEvent('mousemove', +x, +y);
     };
-  }, [width, height]);
+
+    containerRef.current.addEventListener('mousemove', handleMouseMove);
+    return (): void => {
+      if (!containerRef.current) {
+        return;
+      }
+
+      containerRef.current.removeEventListener('mousemove', handleMouseMove);
+    };
+  }, [containerRef.current]);
+
+  // Keyboard event handling
+
+  return {
+    containerRef,
+    nodeTree,
+    renderScene,
+  };
+};
+
+const Scene: React.FC<SceneProps> = ({
+  width = 80,
+  height = 20,
+  config,
+  children,
+  style,
+}: SceneProps) => {
+  const { containerRef, nodeTree, renderScene } = useScene({
+    width,
+    height,
+    config,
+  });
 
   if (renderScene) {
     Reconciler.render(children, nodeTree);

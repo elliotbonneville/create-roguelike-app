@@ -19,6 +19,10 @@ const App: React.FC = () => {
     left: 0,
     top: 0,
   });
+  const [mousePosition, setMousePosition] = useState({
+    x: -1,
+    y: -1,
+  });
 
   useEffect(() => {
     const width = Math.floor(window.innerWidth / config.cellWidth) - 1;
@@ -37,6 +41,10 @@ const App: React.FC = () => {
     });
   }, []);
 
+  const handleMouseOver = (x: number, y: number): void => {
+    setMousePosition({ x, y });
+  };
+
   return (
     <Scene
       width={sceneSize.width}
@@ -54,6 +62,7 @@ const App: React.FC = () => {
         width={sceneSize.width}
         height={sceneSize.height}
         border="pipe"
+        onMouseOver={handleMouseOver}
       >
         <text
           x={2}
@@ -63,6 +72,16 @@ const App: React.FC = () => {
           Hello World
         </text>
       </box>
+      {(mousePosition.x > -1 || mousePosition.y > -1) && (
+        <box
+          x={mousePosition.x}
+          y={mousePosition.y}
+          width={1}
+          height={1}
+          character="*"
+          foregroundColor="red"
+        />
+      )}
     </Scene>
   );
 };

@@ -25,9 +25,13 @@ export type VirtualNode = BaseNode | BoxNode | TextNode;
 
 interface Cell {
   foregroundColor: string;
+  currentForegroundColor: string;
   backgroundColor: string;
+  currentBackgroundColor: string;
   character: string;
-  dirty: boolean;
+  currentCharacter: string;
+  x: number;
+  y: number;
   readonly element: HTMLDivElement;
 }
 
@@ -95,13 +99,15 @@ export const createNodeTree = ({
 export const renderNodeTree = (
   node: BaseNode | BoxNode | TextNode,
   updateCell: UpdateCell,
-): void => {
+  totalOffset: { x: number; y: number } = { x: 0, y: 0 },
+): Cell[] => {
   const wrappedUpdateCell = (
     x: number,
     y: number,
     data: Partial<Cell>,
   ): void => {
-    Object.assign(node.renderedCells, { [`${x},${y}`]: true });
+    // eslint-disable-next-line
+    node.renderedCells[`${totalOffset.x + x},${totalOffset.y + y}`] = true;
     updateCell(x, y, data);
   };
 
@@ -119,7 +125,10 @@ export const renderNodeTree = (
       updateCell(x + child.x, y + child.y, data);
     };
 
-    renderNodeTree(child, offsetUpdateCell);
+    renderNodeTree(child, offsetUpdateCell, {
+      x: totalOffset.x + child.x,
+      y: totalOffset.y + child.y,
+    });
   });
 };
 
@@ -151,13 +160,18 @@ export const createScene = ({
   // Create nodes
   for (let x = 0; x < width; x += 1) {
     for (let y = 0; y < height; y += 1) {
-      const cellKey = `${x},${y}`;
+      // eslint-disable-next-line prefer-template
+      const cellKey = x + ',' + y;
       const cell: Cell = {
         foregroundColor: 'white',
+        currentForegroundColor: 'white',
         backgroundColor: 'black',
+        currentBackgroundColor: 'black',
         character: '',
-        dirty: true,
+        currentCharacter: '',
         element: document.createElement('div'),
+        x,
+        y,
       };
 
       cell.element.id = cellKey;
@@ -176,6 +190,8 @@ export const createScene = ({
         lineHeight: `${cellHeight}px`,
         paddingLeft: `${cellPaddingLeft}px`,
         paddingTop: `${cellPaddingTop}px`,
+        color: 'white',
+        backgroundColor: 'black',
       });
 
       documentFragment.appendChild(cell.element);
@@ -193,48 +209,57 @@ export const createScene = ({
     }
 
     // Compare data here – if it's not different, don't flag tile as dirty
-    const dirty = Object.keys(data).some(
-      key => data[key as keyof Cell] !== cell[key as keyof Cell],
-    );
-
-    Object.assign(cell, {
-      ...data,
-      dirty,
-    });
+    cell.character =
+      typeof data.character !== 'undefined' ? data.character : cell.character;
+    cell.foregroundColor = data.foregroundColor || cell.foregroundColor;
+    cell.backgroundColor = data.backgroundColor || cell.backgroundColor;
   };
 
   return (): void => {
     // Clear buffer
-    // TODO: operate on renderedCells buffer in nodes for more efficient
-    // clearing
-    Object.keys(cells).forEach((cellKey: string) => {
-      const [x, y] = cellKey.split(',');
-      updateCell(+x, +y, {
-        character: '',
-        backgroundColor: 'black',
-        foregroundColor: 'white',
-      });
-    });
+    // // TODO: operate on renderedCells buffer in nodes for more efficient
+    // // clearing
+    // Object.keys(cells).forEach((cellKey: string) => {
+    //   const [x, y] = cellKey.split(',');
+    //   updateCell(+x, +y, {
+    //     character: '',
+    //     backgroundColor: 'black',
+    //     foregroundColor: 'white',
+    //   });
+    // });
 
     // Rasterize node tree to buffer
     renderNodeTree(nodeTree, updateCell);
 
     // Apply changes in buffer to DOM
     Object.values(cells).forEach(cellToRender => {
-      if (!cellToRender.dirty) {
-        return;
+      if (cellToRender.character !== cellToRender.currentCharacter) {
+        // eslint-disable-next-line no-param-reassign
+        cellToRender.currentCharacter = cellToRender.character;
+
+        // eslint-disable-next-line no-param-reassign
+        cellToRender.element.innerHTML = cellToRender.character;
       }
 
-      Object.assign(cellToRender.element, {
-        innerHTML: cellToRender.character,
-      });
+      if (
+        cellToRender.foregroundColor !== cellToRender.currentForegroundColor
+      ) {
+        // eslint-disable-next-line no-param-reassign
+        cellToRender.currentForegroundColor = cellToRender.foregroundColor;
 
-      Object.assign(cellToRender.element.style, {
-        color: cellToRender.foregroundColor,
-        backgroundColor: cellToRender.backgroundColor,
-      });
+        // eslint-disable-next-line no-param-reassign
+        cellToRender.element.style.color = cellToRender.foregroundColor;
+      }
 
-      Object.assign(cellToRender, { dirty: false });
+      if (
+        cellToRender.backgroundColor !== cellToRender.currentBackgroundColor
+      ) {
+        // eslint-disable-next-line no-param-reassign
+        cellToRender.currentBackgroundColor = cellToRender.backgroundColor;
+
+        // eslint-disable-next-line no-param-reassign
+        cellToRender.element.style.color = cellToRender.backgroundColor;
+      }
     });
   };
 };

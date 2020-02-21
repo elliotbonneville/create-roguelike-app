@@ -1,5 +1,5 @@
 import Reconciler from 'react-reconciler';
-import { ReadWriteAttribute, VirtualEvent } from '.';
+import { ReadWriteAttribute } from '.';
 
 export interface BaseNode {
   x: number;
@@ -13,7 +13,10 @@ export interface BaseNode {
   appendChild: (node: BaseNode) => void;
   removeChild: (node: BaseNode) => void;
   setAttribute: (name: ReadWriteAttribute, value: string | number) => void;
-  handleEvent: (x: number, y: number) => void;
+  handleMouseEvent: (eventName: string, x: number, y: number) => void;
+  // mouse events
+  mousePosition: { x: number; y: number };
+  onMouseOver?: (x: number, y: number) => void;
 }
 
 export default function createBase(): BaseNode {
@@ -27,6 +30,10 @@ export default function createBase(): BaseNode {
     parent: null,
     rootContainer: null,
     renderedCells: {},
+    mousePosition: {
+      x: -1,
+      y: -1,
+    },
 
     // methods
     appendChild(this: BaseNode, node: BaseNode): void {
@@ -34,7 +41,15 @@ export default function createBase(): BaseNode {
       this.children.push(node);
     },
 
-    handleEvent(x, y): void {
+    handleMouseEvent(eventType: string, x: number, y: number): void {
+      if (this.mousePosition.x === x && this.mousePosition.y === y) {
+        // Ignore duplicate mouse events
+        return;
+      }
+
+      this.mousePosition.x = x;
+      this.mousePosition.y = y;
+
       const cellKey = `${x},${y}`;
       const hitNodes: BaseNode[] = [];
 
@@ -49,7 +64,13 @@ export default function createBase(): BaseNode {
       };
 
       checkNodeForHit(this);
-      console.log(cellKey, hitNodes);
+
+      const hitNode = hitNodes.reverse()[0];
+      if (eventType === 'mousemove') {
+        if (hitNode.onMouseOver) {
+          hitNode.onMouseOver(x, y);
+        }
+      }
     },
 
     removeChild(this: BaseNode, node: BaseNode): void {
