@@ -9,11 +9,6 @@ export const Box = 'box';
 export const Text = 'text';
 export type NodeType = 'root' | 'box' | 'text';
 
-export interface VirtualEvent {
-  x: number;
-  y: number;
-}
-
 export type ReadWriteAttribute =
   | 'width'
   | 'height'
@@ -100,7 +95,7 @@ export const renderNodeTree = (
   node: BaseNode | BoxNode | TextNode,
   updateCell: UpdateCell,
   totalOffset: { x: number; y: number } = { x: 0, y: 0 },
-): Cell[] => {
+): void => {
   const wrappedUpdateCell = (
     x: number,
     y: number,
@@ -143,7 +138,8 @@ export const createScene = ({
   nodeTree?: BaseNode;
 }): (() => void) => {
   const documentFragment = document.createDocumentFragment();
-  const cells: CellData = {};
+  const cells: Cell[][] = [];
+  const cellList: Cell[] = [];
 
   const {
     width,
@@ -159,6 +155,7 @@ export const createScene = ({
 
   // Create nodes
   for (let x = 0; x < width; x += 1) {
+    cells[x] = [];
     for (let y = 0; y < height; y += 1) {
       // eslint-disable-next-line prefer-template
       const cellKey = x + ',' + y;
@@ -195,14 +192,15 @@ export const createScene = ({
       });
 
       documentFragment.appendChild(cell.element);
-      Object.assign(cells, { [cellKey]: cell });
+      cellList.push(cell);
+      cells[x][y] = cell;
     }
   }
 
   baseElement.appendChild(documentFragment);
 
   const updateCell = (x: number, y: number, data: Partial<Cell>): void => {
-    const cell = cells[`${x},${y}`];
+    const cell = cells[x]?.[y];
 
     if (!cell) {
       return;
@@ -216,23 +214,12 @@ export const createScene = ({
   };
 
   return (): void => {
-    // Clear buffer
-    // // TODO: operate on renderedCells buffer in nodes for more efficient
-    // // clearing
-    // Object.keys(cells).forEach((cellKey: string) => {
-    //   const [x, y] = cellKey.split(',');
-    //   updateCell(+x, +y, {
-    //     character: '',
-    //     backgroundColor: 'black',
-    //     foregroundColor: 'white',
-    //   });
-    // });
-
     // Rasterize node tree to buffer
     renderNodeTree(nodeTree, updateCell);
 
     // Apply changes in buffer to DOM
-    Object.values(cells).forEach(cellToRender => {
+    for (let i = 0; i < cellList.length; i += 1) {
+      const cellToRender = cellList[i];
       if (cellToRender.character !== cellToRender.currentCharacter) {
         // eslint-disable-next-line no-param-reassign
         cellToRender.currentCharacter = cellToRender.character;
@@ -260,6 +247,6 @@ export const createScene = ({
         // eslint-disable-next-line no-param-reassign
         cellToRender.element.style.color = cellToRender.backgroundColor;
       }
-    });
+    }
   };
 };

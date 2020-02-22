@@ -1,13 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import Scene from './reactlike/Scene';
-import { VirtualEvent } from './reactlike';
+import Scene, { VirtualEvent } from './reactlike/Scene';
 
 const config = {
-  cellWidth: 16,
-  cellHeight: 23,
+  cellWidth: 12,
+  cellHeight: 20,
   cellPaddingLeft: 1,
   cellPaddingTop: 2,
-  fontSize: 28,
+  fontSize: 22,
 };
 
 const App: React.FC = () => {
@@ -19,10 +18,16 @@ const App: React.FC = () => {
     left: 0,
     top: 0,
   });
-  const [mousePosition, setMousePosition] = useState({
-    x: -1,
-    y: -1,
+  const [dragging, setDragging] = useState(false);
+  const [initialMousePosition, setInitialMousePosition] = useState({
+    x: 5,
+    y: 5,
   });
+  const [initialPosition, setInitialPosition] = useState({
+    x: 5,
+    y: 5,
+  });
+  const [position, setPosition] = useState({ x: 5, y: 5 });
 
   useEffect(() => {
     const width = Math.floor(window.innerWidth / config.cellWidth) - 1;
@@ -41,8 +46,25 @@ const App: React.FC = () => {
     });
   }, []);
 
-  const handleMouseOver = (x: number, y: number): void => {
-    setMousePosition({ x, y });
+  const handleMouseMove = ({ x, y }: VirtualEvent): void => {
+    if (!dragging) {
+      return;
+    }
+
+    setPosition({
+      x: initialPosition.x + x - initialMousePosition.x,
+      y: initialPosition.y + y - initialMousePosition.y,
+    });
+  };
+
+  const handleMouseDown = ({ x, y }: VirtualEvent): void => {
+    setDragging(true);
+    setInitialMousePosition({ x, y });
+    setInitialPosition({ x: position.x, y: position.y });
+  };
+
+  const handleMouseUp = (): void => {
+    setDragging(false);
   };
 
   return (
@@ -54,6 +76,7 @@ const App: React.FC = () => {
         position: 'absolute',
         left: sceneOffset.left,
         top: sceneOffset.top,
+        userSelect: 'none',
       }}
     >
       <box
@@ -62,26 +85,23 @@ const App: React.FC = () => {
         width={sceneSize.width}
         height={sceneSize.height}
         border="pipe"
-        onMouseOver={handleMouseOver}
+        onMouseMove={handleMouseMove}
       >
-        <text
-          x={2}
-          y={1}
-          onMouseEnter={(event: VirtualEvent): void => console.log(event)}
-        >
-          Hello World
-        </text>
-      </box>
-      {(mousePosition.x > -1 || mousePosition.y > -1) && (
         <box
-          x={mousePosition.x}
-          y={mousePosition.y}
-          width={1}
-          height={1}
-          character="*"
-          foregroundColor="red"
-        />
-      )}
+          x={position.x}
+          y={position.y}
+          onMouseDown={handleMouseDown}
+          onMouseUp={handleMouseUp}
+          width={23}
+          height={11}
+          border="pipe"
+          character={dragging ? '.' : ' '}
+        >
+          <text x={8} y={5} foregroundColor={dragging ? 'red' : 'white'}>
+            Drag Me
+          </text>
+        </box>
+      </box>
     </Scene>
   );
 };
