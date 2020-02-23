@@ -1,8 +1,18 @@
 import React from 'react';
 import ReactDOM from 'react-dom';
 
-import './index.css';
+import WebFont from 'webfontloader';
 
 import App from './App';
 
-ReactDOM.render(<App />, document.getElementById('root'));
+import './index.css';
+
+WebFont.load({
+  custom: {
+    families: ['VideoTerminalScreen'],
+    urls: ['/fonts.css'],
+  },
+  active: () => {
+    ReactDOM.render(<App />, document.getElementById('root'));
+  },
+});

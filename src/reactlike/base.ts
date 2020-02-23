@@ -12,6 +12,7 @@ export interface BaseNode {
   rootContainer: Reconciler.FiberRoot | null;
   renderedCells: { [cellKey: string]: boolean };
   appendChild: (node: BaseNode) => void;
+  hasDescendant: (node: BaseNode) => boolean;
   removeChild: (node: BaseNode) => void;
   setAttribute: (name: ReadWriteAttribute, value: string | number) => void;
   // mouse events
@@ -39,6 +40,17 @@ export default function createBase(): BaseNode {
     appendChild(this: BaseNode, node: BaseNode): void {
       Object.assign(node, { parent: this });
       this.children.push(node);
+    },
+
+    hasDescendant(node?: BaseNode | null): boolean {
+      if (!node || node === null) {
+        return false;
+      }
+
+      return (
+        this.children.includes(node) ||
+        this.children.some(child => child.hasDescendant(node))
+      );
     },
 
     removeChild(this: BaseNode, node: BaseNode): void {

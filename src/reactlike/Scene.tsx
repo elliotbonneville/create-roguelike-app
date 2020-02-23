@@ -13,7 +13,7 @@ export interface VirtualEvent {
 
 export interface SceneProps {
   children?: React.ReactNode;
-  config?: Partial<CellDataRendererConfig>;
+  config: Partial<CellDataRendererConfig>;
   style?: React.CSSProperties;
   width: number;
   height: number;
@@ -21,13 +21,22 @@ export interface SceneProps {
 
 const useMouseInputManager = ({
   nodeTree,
-  containerRef,
+  canvasRef,
+  config,
 }: {
   nodeTree: BaseNode;
-  containerRef: React.RefObject<HTMLDivElement>;
+  canvasRef: React.RefObject<HTMLCanvasElement>;
+  config: Partial<CellDataRendererConfig>;
 }): void => {
   const [mousePosition, setMousePosition] = useState({ x: -1, y: -1 });
   const [currentTarget, setCurrentTarget] = useState<BaseNode | null>(null);
+  const [canvasRect, setCanvasRect] = useState(
+    canvasRef.current?.getBoundingClientRect(),
+  );
+
+  useEffect(() => {
+    setCanvasRect(canvasRef.current?.getBoundingClientRect());
+  }, [canvasRef.current]);
 
   const handleMouseEvent = (eventType: string, x: number, y: number): void => {
     // Ignore duplicate mouse events
@@ -68,6 +77,21 @@ const useMouseInputManager = ({
       target: hitNodes[0],
     };
 
+    if (hitNodes[0] !== currentTarget) {
+      if (currentTarget) {
+        if (currentTarget.onMouseLeave) {
+          currentTarget.onMouseLeave(event);
+        }
+
+        setCurrentTarget(hitNodes[0]);
+        if (hitNodes[0].onMouseEnter) {
+          hitNodes[0].onMouseEnter(event);
+        }
+      } else {
+        setCurrentTarget(hitNodes[0]);
+      }
+    }
+
     while (!event.propagationStopped && hitNodes.length) {
       const node = hitNodes.shift();
 
@@ -79,19 +103,6 @@ const useMouseInputManager = ({
         case 'mousemove': {
           if (node.onMouseMove) {
             node.onMouseMove(event);
-          }
-
-          if (node !== currentTarget) {
-            if (currentTarget !== null) {
-              if (currentTarget.onMouseLeave) {
-                currentTarget.onMouseLeave(event);
-              }
-
-              setCurrentTarget(node);
-              if (node.onMouseEnter) {
-                node.onMouseEnter(event);
-              }
-            }
           }
 
           break;
@@ -127,63 +138,77 @@ const useMouseInputManager = ({
     }
   };
 
+  const getMousePosition = (event: MouseEvent): (number | null)[] => {
+    if (!canvasRect || !config.cellWidth || !config.cellHeight) {
+      return [null, null];
+    }
+
+    const dx = Math.floor(
+      (event.clientX - canvasRect.left || 0) / config.cellWidth,
+    );
+    const dy = Math.floor(
+      (event.clientY - canvasRect.top || 0) / config.cellHeight,
+    );
+    return [dx, dy];
+  };
+
   // Mouse event handling
   useEffect(() => {
-    if (!containerRef.current || !nodeTree) {
+    if (!canvasRef.current || !nodeTree) {
       return (): void => undefined;
     }
 
     const handleMouseMove = (event: MouseEvent): void => {
-      if (!(event.target as HTMLDivElement)?.id) {
+      const [x, y] = getMousePosition(event);
+      if (!x || !y) {
         return;
       }
 
-      const [x, y] = (event.target as HTMLDivElement).id.split(',');
-      handleMouseEvent('mousemove', +x, +y);
+      handleMouseEvent('mousemove', x, y);
     };
 
     const handleMouseDown = (event: MouseEvent): void => {
-      if (!(event.target as HTMLDivElement)?.id) {
+      const [x, y] = getMousePosition(event);
+      if (!x || !y) {
         return;
       }
 
-      const [x, y] = (event.target as HTMLDivElement).id.split(',');
-      handleMouseEvent('mousedown', +x, +y);
+      handleMouseEvent('mousedown', x, y);
     };
 
     const handleMouseUp = (event: MouseEvent): void => {
-      if (!(event.target as HTMLDivElement)?.id) {
+      const [x, y] = getMousePosition(event);
+      if (!x || !y) {
         return;
       }
 
-      const [x, y] = (event.target as HTMLDivElement).id.split(',');
-      handleMouseEvent('mouseup', +x, +y);
+      handleMouseEvent('mouseup', x, y);
     };
 
     const handleMouseClick = (event: MouseEvent): void => {
-      if (!(event.target as HTMLDivElement)?.id) {
+      const [x, y] = getMousePosition(event);
+      if (!x || !y) {
         return;
       }
 
-      const [x, y] = (event.target as HTMLDivElement).id.split(',');
-      handleMouseEvent('click', +x, +y);
+      handleMouseEvent('click', x, y);
     };
 
-    containerRef.current.addEventListener('mousemove', handleMouseMove);
-    containerRef.current.addEventListener('mousedown', handleMouseDown);
-    containerRef.current.addEventListener('mouseup', handleMouseUp);
-    containerRef.current.addEventListener('click', handleMouseClick);
+    canvasRef.current.addEventListener('mousemove', handleMouseMove);
+    canvasRef.current.addEventListener('mousedown', handleMouseDown);
+    canvasRef.current.addEventListener('mouseup', handleMouseUp);
+    canvasRef.current.addEventListener('click', handleMouseClick);
     return (): void => {
-      if (!containerRef.current) {
+      if (!canvasRef.current) {
         return;
       }
 
-      containerRef.current.removeEventListener('mousemove', handleMouseMove);
-      containerRef.current.removeEventListener('mousedown', handleMouseDown);
-      containerRef.current.removeEventListener('mouseup', handleMouseUp);
-      containerRef.current.removeEventListener('click', handleMouseClick);
+      canvasRef.current.removeEventListener('mousemove', handleMouseMove);
+      canvasRef.current.removeEventListener('mousedown', handleMouseDown);
+      canvasRef.current.removeEventListener('mouseup', handleMouseUp);
+      canvasRef.current.removeEventListener('click', handleMouseClick);
     };
-  }, [containerRef.current, currentTarget, mousePosition]);
+  }, [canvasRef.current, currentTarget, mousePosition]);
 };
 
 const useScene = ({
@@ -193,25 +218,25 @@ const useScene = ({
 }: {
   width: number;
   height: number;
-  config?: Partial<CellDataRendererConfig>;
+  config: Partial<CellDataRendererConfig>;
 }): {
-  containerRef: React.RefObject<HTMLDivElement>;
+  canvasRef: React.RefObject<HTMLCanvasElement>;
   nodeTree: BaseNode;
   renderScene: () => void;
 } => {
-  const containerRef: React.RefObject<HTMLDivElement> = useRef(null);
+  const canvasRef: React.RefObject<HTMLCanvasElement> = useRef(null);
   const [renderScene, setRenderScene] = useState();
   const [nodeTree, setNodeTree] = useState();
 
   useEffect(() => {
-    const domNode = containerRef.current;
+    const domNode = canvasRef.current;
     if (!domNode) {
       return (): void => undefined;
     }
 
     const tree = createNodeTree({ width, height });
     const renderSceneCallback = createScene({
-      baseElement: domNode,
+      canvas: domNode,
       config: {
         ...config,
         width,
@@ -224,18 +249,19 @@ const useScene = ({
     setRenderScene(() => renderSceneCallback);
 
     return (): void => {
-      Object.assign(containerRef.current, { innerHTML: '' });
+      Object.assign(canvasRef.current, { innerHTML: '' });
     };
   }, [width, height]);
 
   // Event handling
   useMouseInputManager({
     nodeTree,
-    containerRef,
+    canvasRef,
+    config,
   });
 
   return {
-    containerRef,
+    canvasRef,
     nodeTree,
     renderScene,
   };
@@ -248,7 +274,7 @@ const Scene: React.FC<SceneProps> = ({
   children,
   style,
 }: SceneProps) => {
-  const { containerRef, nodeTree, renderScene } = useScene({
+  const { canvasRef, nodeTree, renderScene } = useScene({
     width,
     height,
     config,
@@ -259,7 +285,7 @@ const Scene: React.FC<SceneProps> = ({
     renderScene();
   }
 
-  return <div ref={containerRef} style={style} />;
+  return <canvas ref={canvasRef} style={style} />;
 };
 
 export default Scene;

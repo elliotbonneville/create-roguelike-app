@@ -5,7 +5,7 @@ const config = {
   cellWidth: 12,
   cellHeight: 20,
   cellPaddingLeft: 1,
-  cellPaddingTop: 2,
+  cellPaddingTop: 15,
   fontSize: 22,
 };
 
@@ -19,6 +19,7 @@ const App: React.FC = () => {
     top: 0,
   });
   const [dragging, setDragging] = useState(false);
+  const [hovered, setHovered] = useState(false);
   const [initialMousePosition, setInitialMousePosition] = useState({
     x: 5,
     y: 5,
@@ -67,6 +68,14 @@ const App: React.FC = () => {
     setDragging(false);
   };
 
+  const handleMouseEnter = (): void => {
+    setHovered(true);
+  };
+
+  const handleMouseLeave = (): void => {
+    setHovered(false);
+  };
+
   return (
     <Scene
       width={sceneSize.width}
@@ -92,12 +101,18 @@ const App: React.FC = () => {
           y={position.y}
           onMouseDown={handleMouseDown}
           onMouseUp={handleMouseUp}
+          onMouseEnter={handleMouseEnter}
+          onMouseLeave={handleMouseLeave}
           width={23}
           height={11}
           border="pipe"
-          character={dragging ? '.' : ' '}
+          character={dragging || hovered ? '.' : ' '}
         >
-          <text x={8} y={5} foregroundColor={dragging ? 'red' : 'white'}>
+          <text
+            x={8}
+            y={5}
+            foregroundColor={dragging || hovered ? 'red' : 'white'}
+          >
             Drag Me
           </text>
         </box>
